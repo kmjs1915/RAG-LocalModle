@@ -78,14 +78,15 @@ RAG-LocalModle/
    ├─ chroma_db/                  # Chroma 向量数据库持久化目录
    └─ user_docs/                  # 用户上传文档存放目录
 ```
-
-| 目录 / 文件 | 是否在仓库中 | 来源 |
-| --- | --- | --- |
-| `Configs` / `Database` / `agent_config` / `frontend` / `lib`、`main.py`、`Start-RAG.ps1`、`requirements.txt`、`.gitignore`、`LICENSE` | ✅ 是 | 随仓库提供 |
-| `.venv/` | ❌ 否 | 使用者本地创建虚拟环境 |
-| `models/` | ❌ 否 | 使用者手动下载 BGE 模型放入 |
-| `chroma_db/` | ❌ 否 | 程序运行后自动生成 |
-| `user_docs/` | ❌ 否 | 程序运行后自动生成 |
+>[!TIP]
+>**🚀需要创建本地虚拟环境以及安装BGE模型才能正常运行** 
+>| 目录 / 文件 | 是否在仓库中 | 来源 |
+>| --- | --- | --- |
+>| `Configs` / `Database` / `agent_config` / `frontend` / `lib`、`main.py`、`Start-RAG.ps1`、`requirements.txt`、`.gitignore`、`LICENSE` | ✅ 是 | 随仓库提供 |
+>| `.venv/` | ❌ 否 | 使用者本地创建虚拟环境 |
+>| `models/` | ❌ 否 | 使用者手动下载 BGE 模型放入 |
+>| `chroma_db/` | ❌ 否 | 程序运行后自动生成 |
+>| `user_docs/` | ❌ 否 | 程序运行后自动生成 |
 
 ## 📋 环境要求
 
@@ -134,18 +135,19 @@ pip install -r requirements.txt
 >
 > 如需 GPU 加速，请按 [PyTorch 官方说明](https://pytorch.org/get-started/locally/) 安装与显卡 / CUDA 版本匹配的 `torch`。
 
-### 4. 模型下载说明（⚠️ 重点）
-
-`models/` 文件夹**不在仓库中**（模型体积大、有独立许可证），需要你手动下载并放入项目根目录的 `models/` 文件夹下。
-
-**推荐模型**（与 `Configs/config.json` 中的默认配置一致）：
-
-| 用途 | 推荐模型 | 说明 |
-| --- | --- | --- |
-| Embedding（向量化） | `BAAI/bge-small-zh-v1.5` | 默认模型，中文小模型，体积小、速度快，适合大多数场景 |
-| Embedding（更高精度） | `BAAI/bge-base-zh-v1.5` / `bge-large-zh-v1.5` | 精度更高，体积与资源占用更大（可选） |
-| Reranker（重排序） | `BAAI/bge-reranker-base` | 默认模型，中文重排序，显著提升检索质量 |
-| Reranker（更高精度） | `BAAI/bge-reranker-large` | 精度更高，资源占用更大（可选） |
+> [!TIP]
+>### 4. 模型下载说明（⚠️ 重点）
+>
+>`models/` 文件夹**不在仓库中**（模型体积大、有独立许可证），需要你手动下载并放入项目根目录的 `models/` 文件夹下。
+>
+>**推荐模型**（与 `Configs/config.json` 中的默认配置一致）：
+>
+>| 用途 | 推荐模型 | 说明 |
+>| --- | --- | --- |
+>| Embedding（向量化） | `BAAI/bge-small-zh-v1.5` | 默认模型，中文小模型，体积小、速度快，适合大多数场景 |
+>| Embedding（更高精度） | `BAAI/bge-base-zh-v1.5` / `bge-large-zh-v1.5` | 精度更高，体积与资源占用更大（可选） |
+>| Reranker（重排序） | `BAAI/bge-reranker-base` | 默认模型，中文重排序，显著提升检索质量 |
+>| Reranker（更高精度） | `BAAI/bge-reranker-large` | 精度更高，资源占用更大（可选） |
 
 **下载方式**（任选其一）：
 
