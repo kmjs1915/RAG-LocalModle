@@ -459,30 +459,56 @@ def api_admin_upload(files: List[UploadFile] = File(default=[]),
     spool = _spool_dir()
     staged: List[Path] = []          # 中转文件（保持原始文件名，便于 lib 取到正确文件名）
     tmp_dirs: List[Path] = []
+    skipped: List[str] = []
     try:
         for uf in files:
             name = Path(uf.filename or "").name
             if not name:
+                skipped.append("（未提供文件名的上传项）")
                 continue
             ext = Path(name).suffix.lower()
+            if ext not in file_loader.SUPPORTED_EXTS:
+                # 非白名单文件仍登记，由 lib 统一给出「仅允许 …」的提示，这里只留一条日志
+                logger.warning("上传文件类型不在白名单：%s", name)
             work = spool / uuid.uuid4().hex
             work.mkdir(parents=True, exist_ok=True)
             tmp_dirs.append(work)
-            target = work / name        # 保持原名，save_uploaded_files 用 Path.name 作为落盘名
+            target = work / name        # 保持原名，save_uploaded_files 用文件名作为落盘名
             try:
+                # 【修复点】二进制写入；并先把上传流定位到开头，避免上游读过导致落盘 0 字节
+                try:
+                    uf.file.seek(0)
+                except Exception:
+                    pass
                 with open(target, "wb") as fh:
                     shutil.copyfileobj(uf.file, fh, COPY_CHUNK_BYTES)
                     fh.flush()
                     os.fsync(fh.fileno())
-            except OSError as exc:
-                logger.error("上传中转写入失败 %s: %s", name, exc)
+                written = target.stat().st_size
+                expected = getattr(uf, "size", None)
+                if written <= 0:
+                    skipped.append(f"{name}：上传内容为空（0 字节）")
+                    logger.error("上传内容为空：%s", name)
+                    continue
+                if expected and written != expected:
+                    logger.warning("上传大小与声明不一致：%s（声明 %s 字节，实际 %d 字节）", name, expected, written)
+                logger.info("上传中转完成：%s（%d 字节，类型 %s）", name, written, ext or "无扩展名")
+            except PermissionError as exc:
+                skipped.append(f"{name}：中转文件被占用或无写入权限（{exc}）")
+                logger.error("上传中转被拒绝 %s -> %s", name, exc)
                 continue
-            if ext not in file_loader.SUPPORTED_EXTS:
-                # 非白名单文件仍交给 lib 统一给出「仅允许 …」的提示，这里只留一条日志
-                logger.warning("上传文件类型不在白名单：%s", name)
+            except OSError as exc:
+                skipped.append(f"{name}：中转写入失败（{type(exc).__name__}: {exc}）")
+                logger.error("上传中转写入失败 %s -> %s", name, exc)
+                continue
+            except Exception as exc:                     # 兜底：任何异常都要给出可读原因
+                skipped.append(f"{name}：上传处理异常（{type(exc).__name__}: {exc}）")
+                logger.exception("上传处理出现未预期异常：%s", name)
+                continue
             staged.append(target)
 
-        saved, skipped = file_loader.save_uploaded_files(staged)
+        saved, lib_skipped = file_loader.save_uploaded_files(staged)
+        skipped.extend(lib_skipped)
     finally:
         for d in tmp_dirs:
             shutil.rmtree(d, ignore_errors=True)
