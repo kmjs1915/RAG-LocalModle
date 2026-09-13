@@ -2,8 +2,11 @@
 
 **FastAPI + Chroma 本地私有化 RAG 知识库** —— 使用 BGE 系列 Embedding / Reranker 模型，自带 Web 前端，支持文档上传、知识库重建与文档问答，以及局域网访问。
 
+>[!Important]
+>⚠️ 本仓库只上传代码，**模型文件未随仓库打包**。请自行在 Hugging Face 下载 BGE 系列模型，解压放入项目根目录`models`目录后才能正常运行。（**详见后文 💡Tip 和 ⚠️重要说明**）
+
 - **检索链路完全本地**：文档解析、文本切片、向量化（BGE Embedding）、余弦召回（Chroma）、重排序（BGE Reranker）全部在本机完成，文档与向量数据不出本机。
-- **回答生成调用大模型 API**：最终回答由大模型生成，支持 **DeepSeek** 与 **GML（智谱 GLM，glm-4-flash）** 两个 OpenAI 兼容接口，需自行配置 API Key（见「⚠️ 重要说明」）。
+- **回答生成调用大模型 API**：最终回答由大模型生成，支持 **DeepSeek** 与 **GML（智谱 GLM，glm-4-flash）** 两个 OpenAI 兼容接口，需自行配置 API Key（见「📝 使用说明」）。
 
 ## ✨ 项目特性
 
