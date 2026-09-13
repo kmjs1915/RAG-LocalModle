@@ -294,3 +294,6 @@ python main.py
 ## 📄 License
 
 本项目基于 [MIT License](LICENSE) 开源。
+
+>[!Tip]  
+>欢迎基于MIT协议对本项目进行二次开发，功能拓展与个性化改造！
