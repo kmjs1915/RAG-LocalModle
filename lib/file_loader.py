@@ -78,72 +78,165 @@ class LoadReport:
 # 文件读取
 # ---------------------------------------------------------------------------
 def read_txt(path: Path) -> str:
-    """读取 TXT：依次尝试多种编码，全部失败则以替换字符兜底（不抛异常中断）。"""
+    """
+    读取 TXT：依次尝试多种编码，全部失败则以替换字符兜底（不抛异常中断）。
+    【修复点】区分为「文件被占用/无权限」与「编码无法识别」，便于前端提示。
+    """
     last_error: Optional[Exception] = None
     for enc in TXT_ENCODINGS:
         try:
-            return path.read_text(encoding=enc)
+            with open(path, "r", encoding=enc) as fh:      # 文本文件按文本模式读取
+                return fh.read()
+        except PermissionError as exc:
+            logger.error("TXT 被占用或无读取权限：%s -> %s", path, exc)
+            raise DocumentLoadError("文件被其他程序占用或无读取权限（请关闭后重试）") from exc
         except UnicodeDecodeError as exc:
             last_error = exc
             continue
-        except Exception as exc:  # 权限/占用等
-            raise DocumentLoadError(f"读取失败（{enc}）：{exc}") from exc
+        except OSError as exc:  # 磁盘/IO 等异常
+            logger.error("TXT 读取 IO 异常：%s -> %s", path, exc)
+            raise DocumentLoadError(f"文件无法读取（{type(exc).__name__}: {exc}）") from exc
     try:  # 最后兜底：忽略无法解码的字节
-        raw = path.read_bytes()
-        return raw.decode("utf-8", errors="replace")
+        with open(path, "rb") as fh:
+            return fh.read().decode("utf-8", errors="replace")
+    except PermissionError as exc:
+        raise DocumentLoadError("文件被其他程序占用或无读取权限（请关闭后重试）") from exc
     except Exception as exc:
         raise DocumentLoadError(f"编码无法识别：{last_error or exc}") from exc
 
 
+def _precheck_binary_file(path: Path, signature: bytes, signature_name: str,
+                          legacy: Optional[Tuple[bytes, str]] = None) -> None:
+    """
+    PDF / DOCX 的二进制预检（统一用 rb 二进制模式打开，绝不用文本模式 r）：
+
+      1) 文件被其他程序占用 / 无权限   -> DocumentLoadError（可读的占用提示）
+      2) 空文件（0 字节）              -> DocumentLoadError
+      3) 命中 legacy 魔数（如 .doc 老格式）-> 给出针对性的转换建议
+      4) 魔数不匹配（格式不符/损坏）    -> DocumentLoadError，并记录前 8 字节便于定位
+      5) 路径含中文/空格同样适用（Path 已正确处理，不做任何字符串拼接）
+
+    仅做检查，不读取全部内容，因此对大文件没有额外开销。
+    """
+    try:
+        # 二进制只读：既能读魔数，也能正确探测「文件被独占锁定」
+        with open(path, "rb") as fh:
+            head = fh.read(max(16, len(signature)))
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+    except PermissionError as exc:
+        logger.error("文件被占用或无读取权限：%s -> %s", path, exc)
+        raise DocumentLoadError("文件被其他程序占用或无读取权限（请关闭后重试）") from exc
+    except OSError as exc:
+        logger.error("文件读取 IO 异常：%s -> %s", path, exc)
+        raise DocumentLoadError(f"文件无法读取（{type(exc).__name__}: {exc}）") from exc
+
+    if size == 0:
+        raise DocumentLoadError("文件内容为空（0 字节）")
+    if head.startswith(signature):
+        return
+    if legacy and head.startswith(legacy[0]):
+        logger.warning("文件为旧格式：%s（%s）", path, legacy[1])
+        raise DocumentLoadError(legacy[1])
+    logger.warning("文件格式校验未通过：%s（期望 %s，实际前 8 字节 %r，大小 %d 字节）",
+                   path, signature_name, head[:8], size)
+    raise DocumentLoadError(
+        f"文件格式不正确或已损坏（缺少 {signature_name}，前 8 字节为 {head[:8]!r}）"
+    )
+
+
 def read_pdf(path: Path) -> str:
-    """读取 PDF：pdfplumber 逐页抽取文本，单页异常跳过该页。"""
+    """
+    读取 PDF：pdfplumber 逐页抽取文本，单页异常跳过该页。
+
+    【修复点】先做二进制预检（rb 打开 + %PDF 魔数 + 空文件/被占用判断），
+    再交给 pdfplumber 按路径解析，报错按类型区分（占用 / 损坏 / 加密 / 无文本层）。
+    """
+    _precheck_binary_file(path, b"%PDF", "PDF 标识 %PDF")
     try:
         import pdfplumber
     except Exception as exc:  # 依赖缺失
-        raise DocumentLoadError(f"pdfplumber 不可用：{exc}") from exc
+        logger.exception("导入 pdfplumber 失败")
+        raise DocumentLoadError(f"pdfplumber 不可用（{type(exc).__name__}: {exc}）") from exc
 
     pages: List[str] = []
     page_errors = 0
     try:
+        # pdfplumber.open 支持路径与文件对象；此处传字符串路径，库内部以二进制方式打开
         with pdfplumber.open(str(path)) as pdf:
-            for page in pdf.pages:
+            for index, page in enumerate(pdf.pages, start=1):
                 try:
                     pages.append(page.extract_text() or "")
                 except Exception as exc:
                     page_errors += 1
-                    logger.warning("PDF 单页解析失败 %s: %s", path.name, exc)
-    except Exception as exc:  # 文件损坏 / 加密
-        raise DocumentLoadError(f"PDF 解析失败：{exc}") from exc
+                    logger.warning("PDF 第 %d 页解析失败 %s: %s", index, path.name, exc)
+    except PermissionError as exc:
+        logger.error("PDF 被占用或无权读取 %s: %s", path.name, exc)
+        raise DocumentLoadError(f"文件被其他程序占用或无读取权限（{exc}）") from exc
+    except Exception as exc:
+        cls = type(exc).__name__
+        logger.exception("PDF 解析异常：%s", path.name)          # 底层报错 + 堆栈写入日志
+        if "Password" in cls:
+            raise DocumentLoadError("PDF 已加密，需要密码才能解析") from exc
+        if "Syntax" in cls or "Pdfminer" in cls or "PSException" in cls:
+            raise DocumentLoadError(f"PDF 结构损坏（{cls}: {exc}）") from exc
+        raise DocumentLoadError(f"PDF 解析未知异常（{cls}: {exc}）") from exc
 
     text = "\n".join(pages)
     if not text.strip():
-        hint = "可能是扫描版图片 PDF（需 OCR）" if page_errors else "PDF 内无可用文本层"
-        raise DocumentLoadError(hint)
+        # 无文本层：最常见是扫描件/图片版 PDF
+        raise DocumentLoadError(
+            "PDF 内无可用文本层（可能是扫描图片 PDF，需 OCR 处理）"
+            + (f"；另有 {page_errors} 页抽取失败" if page_errors else "")
+        )
+    logger.info("PDF 解析成功：%s，%d 页，%d 字符", path.name, len(pages), len(text))
     return text
 
 
 def read_docx(path: Path) -> str:
-    """读取 DOCX：python-docx 抽取段落与表格文本。"""
+    """
+    读取 DOCX：python-docx 抽取段落与表格文本。
+
+    【修复点】导入语句统一为 `from docx import Document`；
+    先做二进制预检（rb 打开 + ZIP 魔数 PK，用于区分「.doc 改名」与「文件损坏」）。
+    """
+    # docx 本质是 ZIP 包（PK\x03\x04）；.doc 老格式是 OLE2，据此给出针对性提示
+    _precheck_binary_file(
+        path, b"PK\x03\x04", "DOCX(ZIP) 标识 PK",
+        legacy=(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
+                "该文件是 Word 97-2003 的 .doc 老格式（OLE2），请用 Word 另存为 .docx 后再上传"),
+    )
     try:
-        import docx  # python-docx
+        from docx import Document                       # 需求1：确认使用该导入方式
     except Exception as exc:
-        raise DocumentLoadError(f"python-docx 不可用：{exc}") from exc
+        logger.exception("导入 python-docx 失败")
+        raise DocumentLoadError(f"python-docx 不可用（{type(exc).__name__}: {exc}）") from exc
 
     try:
-        document = docx.Document(str(path))
-    except Exception as exc:  # 损坏 / 实为 .doc
-        raise DocumentLoadError(f"DOCX 解析失败：{exc}") from exc
+        document = Document(str(path))
+        parts: List[str] = [p.text for p in document.paragraphs if p.text and p.text.strip()]
+        # 表格内容一并抽取（表格文字常是知识库关键信息）
+        for table in getattr(document, "tables", []):
+            for row in table.rows:
+                cells = [c.text.strip() for c in row.cells if c.text and c.text.strip()]
+                if cells:
+                    parts.append(" | ".join(cells))
+    except PermissionError as exc:
+        logger.error("DOCX 被占用或无权读取 %s: %s", path.name, exc)
+        raise DocumentLoadError(f"文件被其他程序占用或无读取权限（{exc}）") from exc
+    except Exception as exc:
+        cls = type(exc).__name__
+        logger.exception("DOCX 解析异常：%s", path.name)          # 底层报错 + 堆栈写入日志
+        if cls in ("BadZipFile", "PackageNotFoundError", "CRCError"):
+            raise DocumentLoadError(
+                f"不是有效的 DOCX（可能是 .doc 老格式被改名为 .docx，或文件已损坏；{cls}: {exc}）"
+            ) from exc
+        raise DocumentLoadError(f"DOCX 解析未知异常（{cls}: {exc}）") from exc
 
-    parts: List[str] = [p.text for p in document.paragraphs if p.text and p.text.strip()]
-    # 表格内容一并抽取（表格文字常是知识库关键信息）
-    for table in getattr(document, "tables", []):
-        for row in table.rows:
-            cells = [c.text.strip() for c in row.cells if c.text and c.text.strip()]
-            if cells:
-                parts.append(" | ".join(cells))
     text = "\n".join(parts)
     if not text.strip():
-        raise DocumentLoadError("DOCX 内无可用文本")
+        raise DocumentLoadError("DOCX 内无可用文本（文档可能是空的，或正文全为图片）")
+    logger.info("DOCX 解析成功：%s，%d 段，%d 字符", path.name, len(parts), len(text))
     return text
 
 
@@ -168,7 +261,15 @@ def load_document(path: Path) -> str:
     else:
         raise DocumentLoadError(f"不支持的文件类型：{ext or '未知'}")
     if not text or not text.strip():
-        raise DocumentLoadError("文件内容为空")
+        # 与 _precheck_binary_file 的空文件提示保持一致，并区分"0 字节"与"只有空白字符"
+        try:
+            file_size = path.stat().st_size
+        except OSError:
+            file_size = -1
+        if file_size == 0:
+            raise DocumentLoadError("文件内容为空（0 字节）")
+        logger.warning("文件解析后无有效文本：%s（%d 字节）", path.name, file_size)
+        raise DocumentLoadError("文件无有效文本内容（仅空白字符，无法切片）")
     if len(text) > MAX_EXTRACT_CHARS:
         logger.warning("文件 %s 文本过长，已截断至 %s 字符", path.name, MAX_EXTRACT_CHARS)
         text = text[:MAX_EXTRACT_CHARS]
@@ -343,12 +444,34 @@ def unique_target_path(docs_dir: Path, filename: str) -> Path:
     return candidate
 
 
+def _as_source_path(item: Any) -> Path:
+    """
+    把上传项统一解析为「源文件路径」。
+
+    【本次修复的核心 BUG】旧实现是 `src = Path(getattr(item, "name", item))`，
+    但 main.py 传入的是 pathlib.Path 对象，而 Path **自带 .name 属性**（值为文件名 basename），
+    于是绝对路径被截断成相对文件名，exists() 改按服务进程的当前工作目录判断：
+      - 目录下没有同名文件 -> 一律报「文件不可读」（pdf/docx/txt 全中招）；
+      - 目录下恰好有同名文件 -> 会拷贝错误的对象（数据串档）。
+    现在改为：路径类对象（str / os.PathLike，含 Path）原样使用；
+    只有真正的「文件对象」（如 Gradio 返回的带 .name 的临时文件对象）才取 .name。
+    """
+    if isinstance(item, (str, os.PathLike)):
+        return Path(item)
+    name = getattr(item, "name", None)
+    if isinstance(name, str) and name:
+        return Path(name)
+    raise DocumentLoadError(f"无法识别的上传项（{type(item).__name__}），已跳过")
+
+
 def save_uploaded_files(file_paths: Optional[Iterable[Any]],
                         docs_dir: Optional[Path] = None) -> Tuple[List[str], List[str]]:
     """
-    把 Gradio 上传的临时文件复制到 user_docs。
-    返回 (成功保存的文件名列表, 跳过说明列表)。
-    注意：仅复制文件，不触发向量库更新（需管理员手动执行「重新初始化知识库」）。
+    把上传的临时文件复制到 user_docs。
+    返回 (成功保存的文件名列表, 跳过说明列表)，跳过原因按类型区分（不存在/类型不符/占用/写入失败）。
+
+    注意：仅复制文件到 user_docs，**不会**触发向量库更新；
+         需管理员手动执行「重建知识库」后新文件才会切片入库。
     """
     docs_dir = Path(docs_dir or USER_DOCS_DIR)
     ensure_dirs()
@@ -356,22 +479,46 @@ def save_uploaded_files(file_paths: Optional[Iterable[Any]],
     saved: List[str] = []
     skipped: List[str] = []
     for item in file_paths or []:
-        # Gradio 在不同版本下可能返回 str 或带 name 属性的对象
-        src = Path(getattr(item, "name", item))
-        if not src.exists() or not src.is_file():
-            skipped.append(f"{src.name}：文件不可读")
+        try:
+            src = _as_source_path(item)
+        except DocumentLoadError as exc:
+            skipped.append(str(exc))
+            continue
+
+        name = src.name                     # 仅用于展示与落盘命名，不做路径拼接
+        if not src.exists():
+            logger.warning("上传源文件不存在：%s", src)
+            skipped.append(f"{name}：源文件不存在或已被清理")
+            continue
+        if not src.is_file():
+            skipped.append(f"{name}：不是普通文件")
             continue
         ext = src.suffix.lower()
         if ext not in SUPPORTED_EXTS:
-            skipped.append(f"{src.name}：仅允许 {'/'.join(SUPPORTED_EXTS)}")
+            skipped.append(f"{name}：仅允许 {'/'.join(SUPPORTED_EXTS)}")
             continue
+
         try:
-            target = unique_target_path(docs_dir, src.name)
-            shutil.copy2(src, target)
+            target = unique_target_path(docs_dir, name)
+            # 二进制读写（rb/wb）：兼容中文名与含空格路径，且避免任何编码转换
+            with open(src, "rb") as fsrc, open(target, "wb") as fdst:
+                shutil.copyfileobj(fsrc, fdst, 1024 * 1024)
+                fdst.flush()
+                os.fsync(fdst.fileno())
+            src_size, dst_size = src.stat().st_size, target.stat().st_size
+            if src_size != dst_size:         # 落盘校验：防止出现 0 字节/被截断的副本
+                raise OSError(f"写入后大小不一致（源 {src_size} 字节，目标 {dst_size} 字节）")
             saved.append(target.name)
-            logger.info("上传文件已保存: %s", target.name)
+            logger.info("上传文件已保存：%s（%d 字节）", target.name, dst_size)
+        except PermissionError as exc:
+            skipped.append(f"{name}：文件被占用或无写入权限（请关闭后重试）")
+            logger.error("保存上传文件被拒绝 %s -> %s", name, exc)
+        except OSError as exc:
+            skipped.append(f"{name}：写入失败（{type(exc).__name__}: {exc}）")
+            logger.error("保存上传文件失败 %s -> %s", name, exc)
         except Exception as exc:
-            skipped.append(f"{src.name}：保存失败 {exc}")
+            skipped.append(f"{name}：未知异常（{type(exc).__name__}: {exc}）")
+            logger.exception("保存上传文件出现未预期异常：%s", name)
     return saved, skipped
 
 
