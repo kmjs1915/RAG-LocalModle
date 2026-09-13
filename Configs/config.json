@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "api": {
+    "deepseek": {
+      "api_key": "enc:v1:gAAAAABqpVAYMfMdXqieSf2_mZY0QoIRwGbxX7wo4fEAPAGeDl7zCJwPUpYr3cmOBkia2s7MKCgEuybs_49jpLS3aLOq5cFLWLEXOGDDZOHgjtgLxW88neM5MMpwfiToOaF97FOs7msP",
+      "base_url": "https://api.deepseek.com",
+      "path": "/chat/completions",
+      "model": "deepseek-chat",
+      "updated_at": "2026-09-12 21:14:00"
+    },
+    "gml": {
+      "api_key": "enc:v1:gAAAAABqpWDX1szERNNPnLUWMBE0Ljw8XUtWU2r1EldcDwZuENPFDJY3jvyxF-bppWdPfwNECJRhBL_erDlDKuJzgitzIYn9AAx_D7YRvYOifpUHvEe2JYVpaom63-ytiTo-WzZWYxk13I_1PFaeSo3kTq0DoGvktA==",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "path": "/chat/completions",
+      "model": "glm-4-flash",
+      "updated_at": "2026-09-12 22:25:27"
+    }
+  },
+  "active_provider": "deepseek",
+  "rag": {
+    "chunk_size": 800,
+    "chunk_overlap": 150,
+    "top_k_recall": 10,
+    "top_k_rerank": 3,
+    "low_confidence_threshold": 0.4,
+    "max_question_chars": 2000,
+    "max_context_chars": 6000
+  },
+  "llm": {
+    "temperature": 0.6,
+    "max_tokens": 1024,
+    "timeout": 90,
+    "max_retries": 1
+  },
+  "embedding": {
+    "model_path": "models/bge-small-zh-v1.5",
+    "dim": 384,
+    "query_prefix": "query：",
+    "passage_prefix": "passage：",
+    "max_length": 512,
+    "batch_size": 32,
+    "dim_note": "dim 为需求声明的维度（对应 bge-small-en-v1.5）。本地 bge-small-zh-v1.5 实际隐藏层为 512 维，程序在加载模型后自动按真实维度校准，入库与检索始终使用同一模型，向量一致性不受影响。"
+  },
+  "reranker": {
+    "model_path": "models/bge-reranker-base",
+    "max_length": 512,
+    "batch_size": 16
+  },
+  "chroma": {
+    "persist_dir": "chroma_db",
+    "collection": "personal_kb"
+  },
+  "server": {
+    "server_name": "0.0.0.0",
+    "server_port": 7860
+  },
+  "jwt": {
+    "expire_hours": 12,
+    "issuer": "local-private-rag"
+  },
+  "web": {
+    "host": "0.0.0.0",
+    "port": 4060
+  }
+}

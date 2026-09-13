@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!--
+文件名：frontend/index.html
+功能：模式选择页 —— 居中毛玻璃大卡片，提供「管理员登录」「普通游客登录」两个入口。
+      管理员登录后在卡片内展开账号密码输入框；游客一键获取 guest token 后跳转 chat.html。
+      页面不内联任何业务脚本，逻辑在 js/login.js 中，请求封装在 js/api.js 中。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>本地知识库助手 · 登录</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-login">
+
+  <!-- 背景层：深蓝灰渐变 + 星空颗粒质感 -->
+  <div class="bg-layer" aria-hidden="true">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-grain"></div>
+  </div>
+
+  <main class="login-wrap">
+    <!-- 毛玻璃主卡片 -->
+    <section class="glass-card login-card" role="region" aria-label="登录">
+      <header class="login-head">
+        <div class="brand-mark">📚</div>
+        <h1 class="login-title">本地知识库助手</h1>
+        <p class="login-sub">ChromaDB 向量检索 · BGE 语义重排 · 本地大模型问答</p>
+      </header>
+
+      <!-- 模式选择区 -->
+      <div class="mode-select" id="modeSelect">
+        <button class="btn btn-primary btn-lg" id="btnShowAdmin" type="button">
+          <span class="btn-ico">🛡️</span> 管理员登录
+        </button>
+        <button class="btn btn-ghost btn-lg" id="btnGuest" type="button">
+          <span class="btn-ico">👤</span> 普通游客登录
+        </button>
+        <p class="mode-hint">
+          游客仅可使用对话功能；管理员登录后可上传文档、管理密钥与重建知识库。
+        </p>
+      </div>
+
+      <!-- 管理员登录表单（点击后展开，默认隐藏） -->
+      <form class="admin-form" id="adminForm" autocomplete="off" hidden>
+        <div class="field">
+          <label class="field-label" for="username">管理员账号</label>
+          <input class="input" type="text" id="username" name="username"
+                 placeholder="例如 admin" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="password">密码</label>
+          <input class="input" type="password" id="password" name="password"
+                 placeholder="请输入密码" autocomplete="current-password" />
+        </div>
+        <div class="form-row">
+          <button class="btn btn-primary" type="submit" id="btnAdminLogin">登录</button>
+          <button class="btn btn-ghost" type="button" id="btnBackMode">返回</button>
+        </div>
+      </form>
+
+      <!-- 状态提示区 -->
+      <div class="alert alert-error" id="loginError" hidden></div>
+      <div class="alert alert-info" id="loginInfo" hidden></div>
+    </section>
+
+    <!-- 底部风险提示 -->
+    <footer class="login-footer">
+      ⚠️ 本服务仅限局域网使用，HTTP 为明文传输，请注意抓包风险；请勿在公网环境暴露本服务。
+    </footer>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

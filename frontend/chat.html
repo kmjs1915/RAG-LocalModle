@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!--
+文件名：frontend/chat.html
+功能：主界面 —— 左侧管理员功能侧边栏 + 右侧对话区。
+      游客进入时侧边栏相关 DOM 由 js/chat.js 判断角色后「不渲染」（而非仅隐藏）。
+      管理员 8 项功能以模态框形式在右侧弹出；所有数据交互经 /api/* 接口完成。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>本地知识库 · 对话</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body class="page-chat">
+
+  <div class="bg-layer" aria-hidden="true">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-grain"></div>
+  </div>
+
+  <!-- 顶栏（横跨全宽） -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" id="btnSidebarToggle" type="button" title="折叠/展开侧边栏" hidden>☰</button>
+      <span class="topbar-title">本地知识库</span>
+      <span class="topbar-badge" id="kbBadge">加载中…</span>
+    </div>
+    <div class="topbar-right">
+      <span class="role-chip" id="roleChip">未登录</span>
+      <button class="icon-btn" id="btnLogoutTop" type="button" title="退出登录">🚪</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 左侧：管理员侧边栏（游客角色不生成此节点） -->
+    <aside class="sidebar" id="sidebar" hidden>
+      <div class="sidebar-head">
+        <div class="brand-mark sm">📚</div>
+        <div class="sidebar-brand">
+          <strong>本地知识库</strong>
+          <small id="sidebarSub">管理员控制台</small>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="管理员功能">
+        <!-- 导航项由 chat.js 渲染（游客不渲染，保持 DOM 干净） -->
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="role-box">
+          <span class="role-box-label">当前角色</span>
+          <span class="role-box-value" id="sidebarRole">—</span>
+        </div>
+        <div class="role-box-sub" id="sidebarKbInfo">知识库：—</div>
+      </div>
+    </aside>
+
+    <!-- 右侧：聊天主区域 -->
+    <main class="chat-main">
+      <div class="chat-head">
+        <div class="chat-head-left">
+          <h2 class="chat-title" id="chatTitle">知识库问答</h2>
+          <span class="info-ico" id="confInfoIco" tabindex="0" role="button"
+                aria-label="置信度说明">ⓘ
+            <span class="info-tip" role="tooltip">
+              置信度 = Top3 片段「原始余弦相似度」的平均值 × 100（保留一位小数）。<br />
+              余弦相似度 &lt; 0.5 的片段不参与平均；若 Top3 全部 &lt; 0.5，则置信度记为 0%，<br />
+              并提示「知识库未找到高度匹配资料，回答仅供参考。」。
+            </span>
+          </span>
+        </div>
+        <div class="chat-head-right">
+          <button class="btn btn-ghost btn-sm" id="btnClearChat" type="button">清空对话</button>
+        </div>
+      </div>
+
+      <!-- 消息容器 -->
+      <div class="messages" id="messages" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-emoji">💬</div>
+          <p class="empty-title">开始你的第一个提问</p>
+          <p class="empty-desc">我会检索本地知识库并给出带置信度的回答</p>
+          <div class="empty-chips" id="emptyChips"></div>
+        </div>
+      </div>
+
+      <!-- 底部输入区 -->
+      <div class="composer">
+        <div class="composer-box">
+          <textarea class="composer-input" id="questionInput" rows="1"
+                    placeholder="输入你的问题，Enter 发送，Shift + Enter 换行"></textarea>
+          <button class="btn btn-primary btn-send" id="btnSend" type="button">发送</button>
+        </div>
+        <div class="composer-hint">
+          <span id="composerStatus">就绪</span>
+          <span class="composer-tip">回答末尾会显示参考资料置信度</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 侧边栏遮罩（移动端展开时） -->
+  <div class="sidebar-mask" id="sidebarMask" hidden></div>
+
+  <!-- 通用模态框容器：内容由 chat.js 按功能渲染 -->
+  <div class="modal-mask" id="modalMask" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-head">
+        <h3 class="modal-title" id="modalTitle">功能</h3>
+        <!-- data-close：由 chat.js 的统一委托关闭入口处理（与弹窗内「取消/关闭」按钮同一路径） -->
+        <button class="icon-btn" id="btnModalClose" type="button" title="关闭" data-close>✕</button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+      <footer class="modal-foot" id="modalFoot"></footer>
+    </div>
+  </div>
+
+  <!-- 轻提示 -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/chat.js"></script>
+</body>
+</html>

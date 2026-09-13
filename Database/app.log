@@ -1,0 +1,7 @@
+2026-09-13 17:43:20 [INFO] lib.chroma_kb: Chroma 客户端已初始化: E:\RAG-LocalEmbedding\chroma_db (collection=personal_kb)
+2026-09-13 17:43:20 [INFO] lib.security: 已生成 API Key 加密主密钥: E:\RAG-LocalEmbedding\Configs\.secret.key
+2026-09-13 17:43:20 [ERROR] lib.security: API Key 解密失败: 
+2026-09-13 17:43:20 [WARNING] lib.security: [密钥读取] provider=deepseek 磁盘配置中未找到可用 API Key（密文长度=147，文件=E:\RAG-LocalEmbedding\Configs\config.json）
+2026-09-13 17:43:20 [ERROR] lib.security: API Key 解密失败: 
+2026-09-13 17:43:20 [WARNING] lib.security: [密钥读取] provider=gml 磁盘配置中未找到可用 API Key（密文长度=171，文件=E:\RAG-LocalEmbedding\Configs\config.json）
+2026-09-13 17:43:23 [INFO] main: 已签发 token：role=guest sub=guest eyJhbGci...OZOEXM(len=256)
