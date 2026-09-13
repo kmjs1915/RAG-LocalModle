@@ -1,5 +1,6 @@
+## RAG-LocalModle 本地私有化向量RAG知识库
 
-**FastAPI + Chroma 本地私有化 RAG 知识库** —— 使用 BGE 系列 Embedding / Reranker 模型，自带 Web 前端，支持文档上传、知识库重建与文档问答。
+**FastAPI + Chroma 本地私有化 RAG 知识库** —— 使用 BGE 系列 Embedding / Reranker 模型，自带 Web 前端，支持文档上传、知识库重建与文档问答，以及局域网访问。
 
 - **检索链路完全本地**：文档解析、文本切片、向量化（BGE Embedding）、余弦召回（Chroma）、重排序（BGE Reranker）全部在本机完成，文档与向量数据不出本机。
 - **回答生成调用大模型 API**：最终回答由大模型生成，支持 **DeepSeek** 与 **GML（智谱 GLM，glm-4-flash）** 两个 OpenAI 兼容接口，需自行配置 API Key（见「⚠️ 重要说明」）。
@@ -15,6 +16,23 @@
 - 📊 **置信度展示**：回答末尾自动标注「参考资料置信度」，低置信度时给出明确提示；前端可展开查看召回 Top10 与 Reranker 分数（调试信息）。
 - 🚀 **一键启动**：Windows 下提供 `Start-RAG.ps1` 一键启动脚本。
 - 📡 **局域网访问**：启动后控制台自动显示局域网访问地址（形如 `http://192.168.x.x:4060`），同一局域网内的手机 / 平板 / 其他电脑可直接访问，适合团队内网共享知识库。
+
+>项目代码借助 DeepSeek Harness(DSH) 与 OpenAI Codex 辅助生成与调试。
+
+## 🧠 项目思路 
+>[!NOTE]
+>🙏
+>项目部分设计思路参考B站up主-马克的技术工作坊，下面两张截图取自该视频，仅用于思路说明，不做商用  
+>本项目代码为独立实现，**代码本身并非搬运、复刻UP主源码**，只是参考RAG架构思路
+>原视频链接：https://www.bilibili.com/video/BV1JLN2z4EZQ  
+>**版权归原UP主所有，在此感谢UP主分享的优秀RAG教程.**
+
+**准备部分：**  
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/ec4937d5-501d-4ac4-8f0e-8a04f0c1ea2f" />
+
+**回答部分：**  
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/1a1f61a9-77cc-4e05-82f2-0aa0d0798f41" />
+
 
 ## 🖼️ 界面预览
 
@@ -105,7 +123,7 @@ git clone https://github.com/kmjs1915/RAG-LocalMode.git
 cd RAG-LocalMode
 ```
 
-> 说明：仓库在 GitHub 上的实际名称为 `RAG-LocalMode`（私有仓库，需拥有访问权限）。
+> 说明：仓库在 GitHub 上的实际名称为 `RAG-LocalMode`。
 
 ### 2. 创建虚拟环境
 
@@ -196,18 +214,17 @@ python main.py
 启动后访问（本机）：
 
 - 模式选择页：<http://127.0.0.1:4060/>
-- 对话主界面：<http://127.0.0.1:4060/chat.html>
-- Swagger 接口文档：<http://127.0.0.1:4060/api/docs>
 
 **🌐 局域网访问**：启动后，启动脚本 / `main.py` 会在控制台打印本机局域网 IP，并显示「局域网访问」地址（形如 `http://192.168.x.x:4060`）。同一局域网内的其他设备（手机、平板、其他电脑）用浏览器打开该地址即可直接使用，无需额外配置。若局域网设备无法访问，请依次检查：
 
-1. Windows 防火墙是否放行 `4060` 端口（TCP 入站规则）；
+**1. Windows 防火墙是否放行 `4060` 端口（TCP 入站规则）；**  
 2. 安全软件 / 杀毒软件是否拦截了 Python 的入站连接；
 3. 访问设备与服务器是否处于同一局域网（注意访客网络与 AP 隔离）。
 
 服务默认监听 `0.0.0.0:4060`；如需仅本机访问，可运行 `python main.py --host 127.0.0.1`。
-
-**首次登录**：管理员账号 `admin`，初始密码 `abc123456`（首次运行自动创建），登录后请立即在「修改密码」中更换。
+>[!Tip]
+>
+>**首次登录**：管理员账号 `admin`，初始密码 `abc123456`（首次运行自动创建），登录后请立即在「修改密码」中更换。
 
 ## 📝 使用说明
 
