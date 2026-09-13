@@ -20,16 +20,15 @@
 
 **登录界面**（模式选择页：管理员登录 / 普通游客免密进入）：
 
-
-
-
+<img width="1917" height="951" alt="屏幕截图 2026-09-13 161750" src="https://github.com/user-attachments/assets/f6dd5ac7-6257-47d4-9767-8285df64bc98" />
 
 **管理员界面**（左侧为管理员控制台：上传文件、访问日志、API 密钥管理、编辑人设、重建知识库等，右侧为问答区）：
 
-
+<img width="1912" height="952" alt="屏幕截图 2026-09-13 161820" src="https://github.com/user-attachments/assets/0ac890c3-514c-4511-9c49-71442a978371" />
 
 **游客界面**（仅对话功能，无管理侧边栏）：
 
+<img width="1909" height="943" alt="屏幕截图 2026-09-13 161833" src="https://github.com/user-attachments/assets/dc55b2ca-27f3-455b-8fc6-a6ff048da30d" />
 
 
 ## 📁 项目目录结构
